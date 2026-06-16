@@ -1320,7 +1320,7 @@
 async function submitLessonForm(event) {
     event.preventDefault();
     
-    // 폼 입력 데이터 수집
+    // 1. 폼 입력 데이터 수집
     const name = document.getElementById('form-name').value;
     const phone = document.getElementById('form-phone').value;
     const programSelect = document.getElementById('form-program');
@@ -1332,56 +1332,38 @@ async function submitLessonForm(event) {
     const slotName = slotSelect.options[slotSelect.selectedIndex].text;
     const message = document.getElementById('form-message').value;
 
-    // 1️⃣ 구글 앱스 스크립트 전송 (기존 로직 유지)
-    try {
-        await fetch('https://script.google.com/macros/s/AKfycbxAqASUnlZhZOAuWnQKYd-WIuieaO1Q0SOhfy2aX03yJkmg8AV_EPyOVBN07tdca3VO/exec', {
-            method: 'POST',
-            mode: 'no-cors',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                name: name,
-                phone: phone,
-                program: programName,
-                time: selectedTime,
-                date: date,
-                slot: slotName,
-                message: message
-            })
-        });
-        console.log("구글 시트 전송 요청 완료");
-    } catch (error) {
-        console.error("구글 전송 실패:", error);
-    }
+    // 2. 텔레그램 발송 메시지 양식 빌드
+    const telegramMessage = `🔔 [젤라필라테스] 새로운 체험수업 신청!\n\n👤 신청자: ${name}\n📞 연락처: ${phone}\n🎯 프로그램: ${programName}\n⏱️ 체험시간: ${selectedTime}\n📅 희망일자: ${date} (${slotName})\n💬 메시지: ${message || '없음'}`;
 
-    // 2️⃣ 🚀 [신규] 텔레그램 실시간 알림 봇 연동
     const BOT_TOKEN = '8696133005:AAF8Uh6gK0hufHuQyufAkmZhUcjGpYCAxzE';
     const CHAT_ID = '5955006042';
-    
-    // 왼쪽 라인에 딱 붙여서 작성해야 텔레그램에서 공백 없이 깔끔하게 출력됩니다.
-    const telegramMessage = `🔔 [젤라필라테스] 새로운 체험수업 신청!
 
-👤 신청자: ${name}
-📞 연락처: ${phone}
-🎯 프로그램: ${programName}
-⏱️ 체험시간: ${selectedTime}
-📅 희망일자: ${date} (${slotName})
-💬 메시지: ${message || '없음'}`;
+    // 3. 🚀 병렬 전송 처리 (구글 시트 렉 걸려도 텔레그램은 즉시 가도록 분리)
+    const googlePromise = fetch('https://script.google.com/macros/s/AKfycbxAqASUnlZhZOAuWnQKYd-WIuieaO1Q0SOhfy2aX03yJkmg8AV_EPyOVBN07tdca3VO/exec', {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, phone, program: programName, time: selectedTime, date, slot: slotName, message })
+    }).catch(err => console.error("구글 전송 에러:", err));
 
-    try {
-        await fetch(`https://api.telegram.com/bot${BOT_TOKEN}/sendMessage`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                chat_id: CHAT_ID,
-                text: telegramMessage
-            })
-        });
-        console.log("체험 수업 신청 성공");
-    } catch (error) {
-        console.error("텔레그램 알림 발송 실패:", error);
-    }
+    const telegramPromise = fetch(`https://api.telegram.com/bot${BOT_TOKEN}/sendMessage`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            chat_id: CHAT_ID,
+            text: telegramMessage
+        })
+    }).then(res => {
+        if(!res.ok) {
+            return res.json().then(json => { throw new Error(JSON.stringify(json)); });
+        }
+        return res.json();
+    }).catch(err => console.error("텔레그램 발송 에러:", err));
 
-    // 프로세스 마무리: 모달 닫기 및 결과 토스트 팝업
+    // 두 요청을 동시에 실행
+    Promise.all([googlePromise, telegramPromise]);
+
+    // 4. 프로세스 마감 (UI 즉시 반영)
     closeBookingModal();
     
     const toast = document.getElementById('success-toast');
