@@ -1332,11 +1332,11 @@ async function submitLessonForm(event) {
     const slotName = slotSelect.options[slotSelect.selectedIndex].text;
     const message = document.getElementById('form-message').value;
 
-    // 🚀 [구글 우편함을 거쳐 솔라피로 안전하게 전송]
+    // 1️⃣ 구글 앱스 스크립트 전송 (기존 로직 유지)
     try {
         await fetch('https://script.google.com/macros/s/AKfycbxAqASUnlZhZOAuWnQKYd-WIuieaO1Q0SOhfy2aX03yJkmg8AV_EPyOVBN07tdca3VO/exec', {
             method: 'POST',
-            mode: 'no-cors', // 크로스 도메인 에러 방지
+            mode: 'no-cors',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 name: name,
@@ -1348,9 +1348,37 @@ async function submitLessonForm(event) {
                 message: message
             })
         });
-        console.log("문자 알림 요청 전송 완료");
+        console.log("구글 시트 전송 요청 완료");
     } catch (error) {
-        console.error("알림 발송 실패:", error);
+        console.error("구글 전송 실패:", error);
+    }
+
+    // 2️⃣ 🚀 [신규] 텔레그램 실시간 알림 봇 연동
+    const BOT_TOKEN = '8696133005:AAF8Uh6gK0hufHuQyufAkmZhUcjGpYCAxzE';
+    const CHAT_ID = '5955006042';
+    
+    // 왼쪽 라인에 딱 붙여서 작성해야 텔레그램에서 공백 없이 깔끔하게 출력됩니다.
+    const telegramMessage = `🔔 [젤라필라테스] 새로운 체험수업 신청!
+
+👤 신청자: ${name}
+📞 연락처: ${phone}
+🎯 프로그램: ${programName}
+⏱️ 체험시간: ${selectedTime}
+📅 희망일자: ${date} (${slotName})
+💬 메시지: ${message || '없음'}`;
+
+    try {
+        await fetch(`https://api.telegram.com/bot${BOT_TOKEN}/sendMessage`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                chat_id: CHAT_ID,
+                text: telegramMessage
+            })
+        });
+        console.log("체험 수업 신청 성공");
+    } catch (error) {
+        console.error("텔레그램 알림 발송 실패:", error);
     }
 
     // 프로세스 마무리: 모달 닫기 및 결과 토스트 팝업
