@@ -1332,13 +1332,13 @@ async function submitLessonForm(event) {
     const slotName = slotSelect.options[slotSelect.selectedIndex].text;
     const message = document.getElementById('form-message').value;
 
-    // 2. 텔레그램 발송 메시지 양식 빌드
+    // 2. 텔레그램 메시지 빌드
     const telegramMessage = `🔔 [젤라필라테스] 새로운 체험수업 신청!\n\n👤 신청자: ${name}\n📞 연락처: ${phone}\n🎯 프로그램: ${programName}\n⏱️ 체험시간: ${selectedTime}\n📅 희망일자: ${date} (${slotName})\n💬 메시지: ${message || '없음'}`;
 
     const BOT_TOKEN = '8696133005:AAF8Uh6gK0hufHuQyufAkmZhUcjGpYCAxzE';
     const CHAT_ID = '5955006042';
 
-    // 3. 🚀 병렬 전송 처리 (구글 시트 렉 걸려도 텔레그램은 즉시 가도록 분리)
+    // 3. 데이터 송신 비동기 객체 생성
     const googlePromise = fetch('https://script.google.com/macros/s/AKfycbxAqASUnlZhZOAuWnQKYd-WIuieaO1Q0SOhfy2aX03yJkmg8AV_EPyOVBN07tdca3VO/exec', {
         method: 'POST',
         mode: 'no-cors',
@@ -1353,30 +1353,24 @@ async function submitLessonForm(event) {
             chat_id: CHAT_ID,
             text: telegramMessage
         })
-    }).then(res => {
-        if(!res.ok) {
-            return res.json().then(json => { throw new Error(JSON.stringify(json)); });
-        }
-        return res.json();
     }).catch(err => console.error("텔레그램 발송 에러:", err));
 
-    // 두 요청을 동시에 실행
-    Promise.all([googlePromise, telegramPromise]);
-
-    // 4. 프로세스 마감 (UI 즉시 반영)
+    // UI 차단 현상을 막기 위해 전송 시작 직후 모달을 닫되, 안정적으로 데이터가 가도록 순서 조정
     closeBookingModal();
-    
+
+    // 4. 성공 토스트 노출
     const toast = document.getElementById('success-toast');
     if (toast) {
         toast.classList.remove('scale-90', 'opacity-0', 'pointer-events-none');
         toast.classList.add('scale-100', 'opacity-100');
-
         setTimeout(() => {
             toast.classList.remove('scale-100', 'opacity-100');
             toast.classList.add('scale-90', 'opacity-0', 'pointer-events-none');
         }, 5500);
     }
 
+    // 전송이 비동기로 완벽히 태워진 후 폼 초기화
+    await Promise.all([googlePromise, telegramPromise]);
     document.getElementById('lesson-form').reset();
 }
 
