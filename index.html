@@ -1338,27 +1338,9 @@ async function submitLessonForm(event) {
     const BOT_TOKEN = '8696133005:AAF8Uh6gK0hufHuQyufAkmZhUcjGpYCAxzE';
     const CHAT_ID = '5955006042';
 
-    // 3. 데이터 송신 비동기 객체 생성
-    const googlePromise = fetch('https://script.google.com/macros/s/AKfycbxAqASUnlZhZOAuWnQKYd-WIuieaO1Q0SOhfy2aX03yJkmg8AV_EPyOVBN07tdca3VO/exec', {
-        method: 'POST',
-        mode: 'no-cors',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, phone, program: programName, time: selectedTime, date, slot: slotName, message })
-    }).catch(err => console.error("구글 전송 에러:", err));
-
-    const telegramPromise = fetch(`https://api.telegram.com/bot${BOT_TOKEN}/sendMessage`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-            chat_id: CHAT_ID,
-            text: telegramMessage
-        })
-    }).catch(err => console.error("텔레그램 발송 에러:", err));
-
-    // UI 차단 현상을 막기 위해 전송 시작 직후 모달을 닫되, 안정적으로 데이터가 가도록 순서 조정
+    // UI 모달 먼저 닫고 토스트 보여주기 (사용자 경험 최적화)
     closeBookingModal();
-
-    // 4. 성공 토스트 노출
+    
     const toast = document.getElementById('success-toast');
     if (toast) {
         toast.classList.remove('scale-90', 'opacity-0', 'pointer-events-none');
@@ -1369,8 +1351,40 @@ async function submitLessonForm(event) {
         }, 5500);
     }
 
-    // 전송이 비동기로 완벽히 태워진 후 폼 초기화
-    await Promise.all([googlePromise, telegramPromise]);
+    // 3. 비동기 전송 처리 (안정성 강화)
+    try {
+        // 구글 시트 전송 (CORS 문제를 피하기 위해 폼 데이터를 URLSearchParams나 일반 요청으로 분리하는 것이 좋으나, 우선 순서 보장)
+        const googlePromise = fetch('https://script.google.com/macros/s/AKfycbxAqASUnlZhZOAuWnQKYd-WIuieaO1Q0SOhfy2aX03yJkmg8AV_EPyOVBN07tdca3VO/exec', {
+            method: 'POST',
+            mode: 'no-cors',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name, phone, program: programName, time: selectedTime, date, slot: slotName, message })
+        });
+
+        // 텔레그램 전송
+        const telegramPromise = fetch(`https://api.telegram.com/bot${BOT_TOKEN}/sendMessage`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                chat_id: CHAT_ID,
+                text: telegramMessage
+            }
+        )});
+
+        // 두 요청이 모두 끝날 때까지 대기
+        const responses = await Promise.all([googlePromise, telegramPromise]);
+        
+        // 텔레그램 응답 상태 확인 테스트용 디버깅 로그
+        if(responses[1] && !responses[1].ok) {
+            const errData = await responses[1].json();
+            console.error("텔레그램 API 내부 에러 발생:", errData);
+        }
+
+    } catch (err) {
+        console.error("전송 전체 에러:", err);
+    }
+
+    // 폼 초기화
     document.getElementById('lesson-form').reset();
 }
 
