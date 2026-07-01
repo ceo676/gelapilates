@@ -1320,14 +1320,14 @@
         // 3. 순차 백그라운드 발송 (구글 시트의 no-cors 블로킹 전면 우회)
         try {
             // 텔레그램 발송 트래픽 처리 (가장 확실하게 응답 상태를 검증하는 표준 패치 스트림)
-            const telegramPromise = fetch(`https://api.telegram.com/bot${BOT_TOKEN}/sendMessage`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    chat_id: CHAT_ID,
-                    text: telegramMessage
-                })
-            });
+            const telegramPromise = fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+        chat_id: CHAT_ID,
+        text: telegramMessage
+    })
+});
 
             // 구글 앱스 스크립트 발송 트래픽 (no-cors 에러 전이 현상 사전 완전 차단)
             const googlePromise = fetch('https://script.google.com/macros/s/AKfycbxAqASUnlZhZOAuWnQKYd-WIuieaO1Q0SOhfy2aX03yJkmg8AV_EPyOVBN07tdca3VO/exec', {
