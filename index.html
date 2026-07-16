@@ -1320,25 +1320,54 @@
         // 3. 순차 백그라운드 발송 (구글 시트의 no-cors 블로킹 전면 우회)
         try {
             // 텔레그램 발송 트래픽 처리 (가장 확실하게 응답 상태를 검증하는 표준 패치 스트림)
-            const telegramPromise = fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-        chat_id: CHAT_ID,
-        text: telegramMessage
-    })
-});
+           const telegramResponse = await fetch(
+    `https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`,
+    {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            chat_id: CHAT_ID,
+            text: telegramMessage
+        })
+    }
+);
+
+const telegramResult = await telegramResponse.json();
+
+if (!telegramResponse.ok || !telegramResult.ok) {
+    console.error('텔레그램 전송 실패:', telegramResult);
+    throw new Error(
+        telegramResult.description || '텔레그램 전송 실패'
+    );
+}
+
+console.log('텔레그램 전송 성공:', telegramResult);
 
             // 구글 앱스 스크립트 발송 트래픽 (no-cors 에러 전이 현상 사전 완전 차단)
-            const googlePromise = fetch('https://script.google.com/macros/s/AKfycbxAqASUnlZhZOAuWnQKYd-WIuieaO1Q0SOhfy2aX03yJkmg8AV_EPyOVBN07tdca3VO/exec', {
-                method: 'POST',
-                mode: 'no-cors',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ name, phone, program: programName, time: selectedTime, date, slot: slotName, message })
-            });
+            const googlePromise = fetch(
+    'https://script.google.com/macros/s/AKfycbxAqASUnlZhZOAuWnQKYd-WIuieaO1Q0SOhfy2aX03yJkmg8AV_EPyOVBN07tdca3VO/exec',
+    {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            name,
+            phone,
+            program: programName,
+            time: selectedTime,
+            date,
+            slot: slotName,
+            message
+        })
+    }
+);
 
             // 병렬 백그라운드 태스크 완결
-            await Promise.all([telegramPromise, googlePromise]);
+            await googlePromise;
 
         } catch (err) {
             console.error("데이터 실시간 송출 트래픽 예외 발생:", err);
